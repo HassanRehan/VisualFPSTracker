@@ -1,0 +1,7 @@
+path: ../CODPlayerDetectionDataset/data  # dataset root directory
+train: images/train  # training images (relative to 'path')
+val: images/valid  # validation images (relative to 'path')
+
+names:
+  0: body
+  1: head
