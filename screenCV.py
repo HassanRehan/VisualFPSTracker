@@ -16,7 +16,7 @@ if target_window:
     left, top, right, bottom = target_window.left, target_window.top, target_window.right, target_window.bottom
     
     # Define the region you want to capture (left, top, right, bottom)
-    region = (left + 21, top + 50, left + 414, top + 270)
+    region = (left + 840, top + 370, left + 1600, top + 700)
     
     # Preprocess the template image
     template = cv2.imread('player_arrow.png', 0)
