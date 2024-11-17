@@ -14,7 +14,7 @@ def capture_and_display_screenshot(root, target_window, x, y, w, h, img_label, t
     if target_window:
         try:
             target_window.activate()
-        except pygetwindow.PyGetWindowException as e:
+        except gw.PyGetWindowException as e:
             print(f"Error activating window: {e}")
 
         screenshot = pyautogui.screenshot(region=(target_window.left + x, target_window.top + y, w, h))
