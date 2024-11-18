@@ -5,7 +5,6 @@ import numpy as np
 import time
 import tkinter as tk
 
-
 # Find the target window
 target_window = None
 for window in gw.getAllTitles():
@@ -57,7 +56,7 @@ if target_window:
             continue
         
         # Calculate optical flow
-        flow = cv2.calcOpticalFlowFarneback(prev_gray, gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
+        flow = cv2.calcOpticalFlowFarneback(prev_gray, gray, None, 0.5, 3, 60, 3, 5, 1.2, 0)
 
         # Compute magnitude and angle of the flow
         magnitude, angle = cv2.cartToPolar(flow[..., 0], flow[..., 1])
@@ -81,48 +80,11 @@ if target_window:
 
         # Calculate the average angle to determine the direction
         average_angle = np.mean(angle)
-        # current_time = time.strftime("%H:%M:%S", time.localtime())
-        # print(f"{current_time}, {average_angle}")
-        
-        if flow_detected:
-            direction = ""
-            # if 0 <= average_angle < np.pi / 8 or 15 * np.pi / 8 <= average_angle < 2 * np.pi:
-            if 0 <= average_angle < 1.5:
-                direction = "Right"
-                # print(f"Right: 0, {average_angle} , {np.pi / 8} or {15 * np.pi / 8}, {average_angle} , {2 * np.pi}")
-            elif np.pi / 8 <= average_angle < 3 * np.pi / 8:
-                direction = "Down-Right"
-                # print(f"Down-Right: {np.pi / 8}, {average_angle} , {3 * np.pi / 8}")
-            elif 3 * np.pi / 8 <= average_angle < 5 * np.pi / 8:
-                direction = "Down"
-                # print(f"Down: {3 * np.pi / 8}, {average_angle} , {5 * np.pi / 8}")
-            elif 5 * np.pi / 8 <= average_angle < 7 * np.pi / 8:
-                direction = "Down-Left"
-                # print(f"Down-Left: {5 * np.pi / 8}, {average_angle} , {7 * np.pi / 8}")
-            elif 7 * np.pi / 8 <= average_angle < 9 * np.pi / 8:
-                direction = "Left"
-                # print(f"Left: {7 * np.pi / 8}, {average_angle} , {9 * np.pi / 8}")
-            elif 9 * np.pi / 8 <= average_angle < 11 * np.pi / 8:
-                direction = "Up-Left"
-                # print(f"Up-Left: {9 * np.pi / 8}, {average_angle} , {11 * np.pi / 8}")
-            elif 11 * np.pi / 8 <= average_angle < 13 * np.pi / 8:
-                direction = "Up"
-                # print(f"Up: {11 * np.pi / 8}, {average_angle} , {13 * np.pi / 8}")
-            elif 13 * np.pi / 8 <= average_angle < 15 * np.pi / 8:
-                direction = "Up-Right"
-                # print(f"Up-Right: {13 * np.pi / 8}, {average_angle} , {15 * np.pi / 8}")
 
-            # Put the direction text on the image
-            cv2.putText(bgr_flow, f"Direction: {direction}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
-
-        # Display the flow
-        cv2.imshow('Optical Flow', bgr_flow)
-
-        if flow_detected:
-            # Update the canvas with the new direction (inverse)
-            new_x = app.current_x - int(np.cos(average_angle) * 10)
-            new_y = app.current_y - int(np.sin(average_angle) * 10)
-            app.update_canvas(new_x, new_y)
+        # Update the canvas with the new direction
+        new_x = app.current_x + int(np.cos(average_angle) * 10)
+        new_y = app.current_y + int(np.sin(average_angle) * 10)
+        app.update_canvas(new_x, new_y)
 
         prev_gray = gray
 
@@ -137,26 +99,26 @@ if target_window:
         length = 50  # Length of the line
         end_point = start_point
 
-        if flow_detected:
-            if direction == "Right":
-                end_point = (start_point[0] - length, start_point[1])
-            elif direction == "Down-Right":
-                end_point = (start_point[0] - length, start_point[1] - length)
-            elif direction == "Down":
-                end_point = (start_point[0], start_point[1] - length)
-            elif direction == "Down-Left":
-                end_point = (start_point[0] + length, start_point[1] - length)
-            elif direction == "Left":
-                end_point = (start_point[0] + length, start_point[1])
-            elif direction == "Up-Left":
-                end_point = (start_point[0] + length, start_point[1] + length)
-            elif direction == "Up":
-                end_point = (start_point[0], start_point[1] + length)
-            elif direction == "Up-Right":
-                end_point = (start_point[0] - length, start_point[1] + length)
-        else:
-            start_point = (0,0)
-            end_point = (0,0)
+        # if flow_detected:
+        #     if direction == "Right":
+        #         end_point = (start_point[0] - length, start_point[1])
+        #     elif direction == "Down-Right":
+        #         end_point = (start_point[0] - length, start_point[1] - length)
+        #     elif direction == "Down":
+        #         end_point = (start_point[0], start_point[1] - length)
+        #     elif direction == "Down-Left":
+        #         end_point = (start_point[0] + length, start_point[1] - length)
+        #     elif direction == "Left":
+        #         end_point = (start_point[0] + length, start_point[1])
+        #     elif direction == "Up-Left":
+        #         end_point = (start_point[0] + length, start_point[1] + length)
+        #     elif direction == "Up":
+        #         end_point = (start_point[0], start_point[1] + length)
+        #     elif direction == "Up-Right":
+        #         end_point = (start_point[0] - length, start_point[1] + length)
+        # else:
+        #     start_point = (0,0)
+        #     end_point = (0,0)
 
         # Draw the line on the new window
         cv2.line(line_window, start_point, end_point, (0, 255, 0), 2)
