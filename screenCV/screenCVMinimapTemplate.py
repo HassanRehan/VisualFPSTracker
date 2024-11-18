@@ -25,7 +25,7 @@ if target_window:
     # Preprocess the template image
     template = cv2.imread('map_overview.png', 0)
     template_color = cv2.imread('map_overview.png')  # Read the template in color for overlay
-    # template = cv2.GaussianBlur(template, (5, 5), 0)
+    template = cv2.GaussianBlur(template, (5, 5), 0)
     template_edges = cv2.Canny(template, 50, 150)
 
     
@@ -41,10 +41,10 @@ if target_window:
             screenshot_gray = cv2.cvtColor(screenshot_np, cv2.COLOR_BGR2GRAY)
             
             # Apply Gaussian blur to the screenshot
-            # screenshot_blur = cv2.GaussianBlur(screenshot_gray, (5, 5), 0)
+            screenshot_blur = cv2.GaussianBlur(screenshot_gray, (5, 5), 0)
             
             # Detect edges in the screenshot
-            screenshot_edges = cv2.Canny(screenshot_gray, 50, 150)
+            screenshot_edges = cv2.Canny(screenshot_blur, 50, 150)
 
             # Show the preprocessed screenshot
             cv2.imshow('Preprocessed Screenshot', screenshot_edges)

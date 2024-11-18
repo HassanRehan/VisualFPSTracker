@@ -21,3 +21,8 @@ Observing on-screen enemy player model and player crosshair
 
 
 Map flow detection
+- Farneback Optical Flow
+- Lucas-Kanade Optical Flow
+- Dense Optical Flow using DIS
+- SimpleFlow
+- PCAFlow

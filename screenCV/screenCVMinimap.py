@@ -63,9 +63,6 @@ if target_window:
             # Break the loop if 'q' is pressed
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
-            
-            # Add a small delay to control the frame rate
-            time.sleep(0.1)
         
         cv2.destroyAllWindows()
 else:

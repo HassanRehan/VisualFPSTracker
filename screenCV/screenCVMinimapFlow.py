@@ -28,6 +28,7 @@ if target_window:
     hsv_mask = np.zeros((region[3] - region[1], region[2] - region[0], 3), dtype=np.uint8)
     hsv_mask[..., 1] = 255
 
+
     class MovementTraceApp:
         def __init__(self, root):
             self.root = root
@@ -44,7 +45,7 @@ if target_window:
             self.root.geometry(f"{self.bg_image.width}x{self.bg_image.height}")
 
             self.current_x, self.current_y = self.bg_image.width // 2, self.bg_image.height // 2  # Starting point in the middle of the canvas
-            self.scale_factor = 0.4  # Scale factor to reduce the distance
+            self.scale_factor = 0.2  # Scale factor to reduce the distance
 
             # Create the background image on the canvas
             self.canvas.create_image(0, 0, anchor=tk.NW, image=self.bg_photo)
@@ -68,22 +69,29 @@ if target_window:
         screenshot = ImageGrab.grab(bbox=region)
         frame = np.array(screenshot)
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        gray = cv2.GaussianBlur(gray, (5, 5), 0)
         
         if prev_gray is None:
             prev_gray = gray
             continue
         
+        direction = ""
+
         # Calculate optical flow
-        flow = cv2.calcOpticalFlowFarneback(prev_gray, gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
+        flow = cv2.calcOpticalFlowFarneback(prev_gray, gray, None, 0.5, 3, 10, 3, 5, 1.2, 0)
 
         # Compute magnitude and angle of the flow
         magnitude, angle = cv2.cartToPolar(flow[..., 0], flow[..., 1])
-
+        
         # Check for significant flow
         if np.mean(magnitude) < 1:  # Adjust the threshold as needed
             flow_detected = False
         else:
-            flow_detected = True            
+            flow_detected = True
+            # print("\n\n", magnitude)
+            # print("-------------------------------------\n", angle, "\n\n")
+            # time.sleep(1)
+            
 
         # Resize hsv_mask to match the shape of the angle array
         hsv_mask = np.zeros_like(frame)
@@ -98,48 +106,71 @@ if target_window:
 
         # Calculate the average angle to determine the direction
         average_angle = np.mean(angle)
+        print(np.average(angle))
         # current_time = time.strftime("%H:%M:%S", time.localtime())
         # print(f"{current_time}, {average_angle}")
         
         if flow_detected:
             direction = ""
+            # print(average_angle)
+
+
+            # Determine the direction
+            # if 0 < average_angle < 1.4:
+            #     direction = "Right"
+            #     app.update_canvas(app.current_x - int(np.cos(average_angle) * 10), app.current_y)
+            # elif 1.5 < average_angle < 1.7:
+            #     direction = "Up"
+            #     app.update_canvas(app.current_x, app.current_y - int(np.sin(average_angle) * 10))
+            # elif 3.1 <= average_angle < 3.3:
+            #     direction = "Left"
+            #     app.update_canvas(app.current_x + abs(int(np.cos(average_angle) * 10)), app.current_y)
+            # elif 4 < average_angle:
+            #     app.update_canvas(app.current_x, app.current_y + abs(int(np.sin(average_angle) * 10)))
+            #     direction = "Down"
+
             # if 0 <= average_angle < np.pi / 8 or 15 * np.pi / 8 <= average_angle < 2 * np.pi:
-            if 0 <= average_angle < 1.5:
+            if 0 <= average_angle < np.pi / 8 or 15 * np.pi / 8 <= average_angle < 2 * np.pi:
                 direction = "Right"
-                # print(f"Right: 0, {average_angle} , {np.pi / 8} or {15 * np.pi / 8}, {average_angle} , {2 * np.pi}")
+                new_x = app.current_x + 10
+                new_y = app.current_y
             elif np.pi / 8 <= average_angle < 3 * np.pi / 8:
                 direction = "Down-Right"
-                # print(f"Down-Right: {np.pi / 8}, {average_angle} , {3 * np.pi / 8}")
+                new_x = app.current_x + int(np.cos(average_angle) * 10)
+                new_y = app.current_y + int(np.sin(average_angle) * 10)
             elif 3 * np.pi / 8 <= average_angle < 5 * np.pi / 8:
                 direction = "Down"
-                # print(f"Down: {3 * np.pi / 8}, {average_angle} , {5 * np.pi / 8}")
+                new_x = app.current_x
+                new_y = app.current_y + 10
             elif 5 * np.pi / 8 <= average_angle < 7 * np.pi / 8:
                 direction = "Down-Left"
-                # print(f"Down-Left: {5 * np.pi / 8}, {average_angle} , {7 * np.pi / 8}")
+                new_x = app.current_x - int(np.cos(average_angle) * 10)
+                new_y = app.current_y + int(np.sin(average_angle) * 10)
             elif 7 * np.pi / 8 <= average_angle < 9 * np.pi / 8:
                 direction = "Left"
-                # print(f"Left: {7 * np.pi / 8}, {average_angle} , {9 * np.pi / 8}")
+                new_x = app.current_x - 10
+                new_y = app.current_y
             elif 9 * np.pi / 8 <= average_angle < 11 * np.pi / 8:
                 direction = "Up-Left"
-                # print(f"Up-Left: {9 * np.pi / 8}, {average_angle} , {11 * np.pi / 8}")
+                new_x = app.current_x - int(np.cos(average_angle) * 10)
+                new_y = app.current_y - int(np.sin(average_angle) * 10)
             elif 11 * np.pi / 8 <= average_angle < 13 * np.pi / 8:
                 direction = "Up"
-                # print(f"Up: {11 * np.pi / 8}, {average_angle} , {13 * np.pi / 8}")
+                new_x = app.current_x
+                new_y = app.current_y - 10
             elif 13 * np.pi / 8 <= average_angle < 15 * np.pi / 8:
                 direction = "Up-Right"
-                # print(f"Up-Right: {13 * np.pi / 8}, {average_angle} , {15 * np.pi / 8}")
+                new_x = app.current_x + int(np.cos(average_angle) * 10)
+                new_y = app.current_y - int(np.sin(average_angle) * 10)
+            app.update_canvas(new_x, new_y)
 
             # Put the direction text on the image
             cv2.putText(bgr_flow, f"Direction: {direction}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
 
+            
+
         # Display the flow
         cv2.imshow('Optical Flow', bgr_flow)
-
-        if flow_detected:
-            # Update the canvas with the new direction (inverse)
-            new_x = app.current_x - int(np.cos(average_angle) * 10)
-            new_y = app.current_y - int(np.sin(average_angle) * 10)
-            app.update_canvas(new_x, new_y)
 
         prev_gray = gray
 
@@ -174,6 +205,7 @@ if target_window:
         else:
             start_point = (0,0)
             end_point = (0,0)
+
 
         # Draw the line on the new window
         cv2.line(line_window, start_point, end_point, (0, 255, 0), 2)
