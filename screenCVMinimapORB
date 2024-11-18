@@ -1,0 +1,101 @@
+import pygetwindow as gw
+from PIL import ImageGrab
+import cv2
+import numpy as np
+import time
+
+# Find the target window
+target_window = None
+for window in gw.getAllTitles():
+    if window.startswith("Call of Duty"):
+        target_window = gw.getWindowsWithTitle(window)[0]
+        break
+
+if target_window:
+    # Get the window's bounding box
+    left, top, right, bottom = target_window.left, target_window.top, target_window.right, target_window.bottom
+    
+    # Define the region you want to capture (left, top, right, bottom)
+    crop_side = 80
+    crop_top = 0
+    region = (left + 21 + crop_side, top + 70 + crop_top, left + 414 - crop_side, top + 150 - crop_top)
+    
+    # Preprocess the template image
+    template = cv2.imread('map_overview.png', 0)
+    template_color = cv2.imread('map_overview.png')  # Read the template in color for overlay
+    if template is not None:
+        template = cv2.GaussianBlur(template, (5, 5), 0)
+        template_edges = cv2.Canny(template, 50, 150)
+    else:
+        print("Template image not found.")
+    
+    if template is None:
+        print("Error: Template image not found or cannot be read.")
+    else:
+        while True:
+            # Capture the region
+            screenshot = ImageGrab.grab(bbox=region)
+            
+            # Convert the screenshot to a format suitable for OpenCV
+            screenshot_np = np.array(screenshot)
+            screenshot_gray = cv2.cvtColor(screenshot_np, cv2.COLOR_BGR2GRAY)
+            
+            # Apply Gaussian blur to the screenshot
+            screenshot_blur = cv2.GaussianBlur(screenshot_gray, (5, 5), 0)
+            
+            # Detect edges in the screenshot
+            screenshot_edges = cv2.Canny(screenshot_blur, 50, 150)
+
+
+            
+            # Initialize ORB detector
+            orb = cv2.ORB_create()
+
+            # Find keypoints and descriptors with ORB
+            keypoints1, descriptors1 = orb.detectAndCompute(screenshot_edges, None)
+            keypoints2, descriptors2 = orb.detectAndCompute(template_edges, None)
+
+            # Create BFMatcher object
+            bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+
+            # Match descriptors
+            matches = bf.match(descriptors1, descriptors2)
+
+            # Sort them in the order of their distance
+            matches = sorted(matches, key=lambda x: x.distance)
+
+            # Draw first 10 matches
+            matched_img = cv2.drawMatches(screenshot_np, keypoints1, template_color, keypoints2, matches[:10], None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+
+            # Display the matched result
+            cv2.imshow('Matched Result', matched_img)
+
+            # Extract location of good matches
+            if len(matches) >= 4:
+                points1 = np.zeros((len(matches), 2), dtype=np.float32)
+                points2 = np.zeros((len(matches), 2), dtype=np.float32)
+
+                for i, match in enumerate(matches):
+                    points1[i, :] = keypoints1[match.queryIdx].pt
+                    points2[i, :] = keypoints2[match.trainIdx].pt
+
+                # Find homography
+                h, mask = cv2.findHomography(points2, points1, cv2.RANSAC)
+
+                if h is not None:
+                    # Ensure the homography matrix is of type float32
+                    h = h.astype(np.float32)
+
+                    # Use homography to transform the template image
+                    height, width, channels = screenshot_np.shape
+                    template_transformed = cv2.warpPerspective(template_color, h, (width, height))
+                else:
+                    print("Homography could not be computed.")
+            else:
+                print("Not enough matches found to compute homography.")
+
+            # Break the loop if 'q' is pressed
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+        
+        cv2.destroyAllWindows()
