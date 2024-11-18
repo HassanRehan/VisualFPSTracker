@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 import time
 import tkinter as tk
+from PIL import Image, ImageTk  # Add this import for handling images
 
 
 # Find the target window
@@ -30,13 +31,29 @@ if target_window:
     class MovementTraceApp:
         def __init__(self, root):
             self.root = root
-            self.canvas = tk.Canvas(root, width=800, height=600)
+
+            # Load the background image
+            self.bg_image = Image.open("map_overview.png")
+            self.bg_photo = ImageTk.PhotoImage(self.bg_image)
+
+            # Set the canvas size to the image size
+            self.canvas = tk.Canvas(root, width=self.bg_image.width, height=self.bg_image.height)
             self.canvas.pack()
-            self.current_x, self.current_y = 400, 300  # Starting point in the middle of the canvas
+
+            # Set the window size to the image size
+            self.root.geometry(f"{self.bg_image.width}x{self.bg_image.height}")
+
+            self.current_x, self.current_y = self.bg_image.width // 2, self.bg_image.height // 2  # Starting point in the middle of the canvas
+            self.scale_factor = 0.4  # Scale factor to reduce the distance
+
+            # Create the background image on the canvas
+            self.canvas.create_image(0, 0, anchor=tk.NW, image=self.bg_photo)
 
         def update_canvas(self, new_x, new_y):
-            self.canvas.create_line(self.current_x, self.current_y, new_x, new_y, fill="black")
-            self.current_x, self.current_y = new_x, new_y
+            scaled_x = self.current_x + (new_x - self.current_x) * self.scale_factor
+            scaled_y = self.current_y + (new_y - self.current_y) * self.scale_factor
+            self.canvas.create_line(self.current_x, self.current_y, scaled_x, scaled_y, fill="white", width=2)
+            self.current_x, self.current_y = scaled_x, scaled_y
 
     # Create the main window
     root = tk.Tk()
