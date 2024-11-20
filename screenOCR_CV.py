@@ -13,7 +13,7 @@ import time
 # Constants
 ROTATION = 9.5
 THRESHOLD = 190
-OCR_INTERVAL = 800  # in milliseconds
+UPDATE_INTERVAL = 800  # in milliseconds
 EXCEL_FILE = "ocr_data.xlsx"
 GUN_NAME_MATCH_THRESHOLD = 0.5
 
@@ -32,6 +32,7 @@ weapons = {
 
 def save_to_excel(bullet_count, gun_name, player_score, enemy_score, lethal_grenade, tactical_grenade):
     """Save results to an Excel file."""
+    # elapsed_time = round(time.time() - start_time, 1)
     elapsed_time = int(time.time() - start_time)
     ws.append([elapsed_time, bullet_count, gun_name, player_score, enemy_score, lethal_grenade, tactical_grenade])
     wb.save(EXCEL_FILE)
@@ -162,7 +163,7 @@ def update_ocr_results():
     tactical_grenade = capture_and_detect_grenade((1617, 907, 50, 50), tactical_grenade_text_var, tactical_grenade_img_label, "Tactical Grenade")
 
     save_to_excel(bullet_count, gun_name, player_score, enemy_score, lethal_grenade, tactical_grenade)
-    root.after(OCR_INTERVAL, update_ocr_results)
+    root.after(UPDATE_INTERVAL, update_ocr_results)
 
 
 # Preprocess weapon names and categories

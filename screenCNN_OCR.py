@@ -10,10 +10,13 @@ from openpyxl import Workbook
 import time
 import tkinter as tk
 
+UPDATE_INTERVAL = 800  # in milliseconds
+
 def save_to_excel(killcam_status, enemy_in_sight):
     """Save results to an Excel file."""
-    elapsed_time_seconds = int(time.time() - start_time)
-    ws.append([elapsed_time_seconds, killcam_status, enemy_in_sight])
+    # elapsed_time = round(time.time() - start_time, 1)
+    elapsed_time = int(time.time() - start_time)
+    ws.append([elapsed_time, killcam_status, enemy_in_sight])
     wb.save("cnn_data.xlsx")
 
 def find_game_window(title_start="Call of Duty"):
@@ -118,7 +121,7 @@ def update_frame():
     killcam_img_label.config(image=killcam_frame_img)
     killcam_img_label.image = killcam_frame_img
 
-    root.after(1000, update_frame)
+    root.after(UPDATE_INTERVAL, update_frame)
 
 
 # Initialize YOLO model
