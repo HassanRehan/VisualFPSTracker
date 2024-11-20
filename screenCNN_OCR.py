@@ -10,18 +10,11 @@ from openpyxl import Workbook
 import time
 import tkinter as tk
 
-def save_to_excel(killcam_status):
+def save_to_excel(killcam_status, enemy_in_sight):
     """Save results to an Excel file."""
     elapsed_time_seconds = int(time.time() - start_time)
-    ws.append([elapsed_time_seconds, killcam_status])
+    ws.append([elapsed_time_seconds, killcam_status, enemy_in_sight])
     wb.save("cnn_data.xlsx")
-
-
-# Initialize YOLO model
-model_path = "runs/detect/60epochs/weights/best.pt"
-model = YOLO(model_path).to('cuda')
-class_colors = {0: (0, 255, 0), 1: (0, 0, 255)}  # Green and Red for classes
-
 
 def find_game_window(title_start="Call of Duty"):
     """Find and return the target game window."""
@@ -29,7 +22,6 @@ def find_game_window(title_start="Call of Duty"):
         if window.startswith(title_start):
             return gw.getWindowsWithTitle(window)[0]
     return None
-
 
 def capture_region(region, window):
     """Capture a specific region of the screen."""
@@ -53,6 +45,7 @@ def perform_inference(frame):
 
 def draw_detections(frame, results, middle_region):
     """Draw detection boxes and highlight middle region matches."""
+    enemy_detected = False
     for result in results:
         for box in result.boxes:
             x1, y1, x2, y2 = map(int, box.xyxy[0])
@@ -63,13 +56,11 @@ def draw_detections(frame, results, middle_region):
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
             cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
-            # Highlight boxes in the middle region
+            # Check if the box is within the middle region
             mx1, my1, mx2, my2 = middle_region
             if mx1 < x1 < mx2 and my1 < y1 < my2 and mx1 < x2 < mx2 and my1 < y2 < my2:
-                print("Middle region detection: YES")
-            else:
-                print("Middle region detection: NO")
-    return frame
+                enemy_detected = True
+    return frame, enemy_detected
 
 
 def extract_text_from_region(region, window, threshold=190):
@@ -90,24 +81,24 @@ def update_frame():
 
     frame = capture_region((60, 40, 1900, 900), window)
     results = perform_inference(frame)
-    frame_with_detections = draw_detections(frame, results, middle_region)
+    frame_with_detections, enemy_in_sight = draw_detections(frame, results, middle_region)
 
     # Extract and process middle region
     mx1, my1, mx2, my2 = middle_region
     middle_frame = frame_with_detections[my1:my2, mx1:mx2]
 
     # Detect Killcam status
-    killcam_region_coords = (640, 80, 640, 60)
+    killcam_region_coords = (645, 80, 640, 60)
 
-    kx1, ky1, kx2, ky2 = killcam_region_coords
     killcam_text, killcam_region = extract_text_from_region(killcam_region_coords, window)
     if "KILLCAM" in killcam_text:
         killcam_status = "Killcam Detected"
+        enemy_in_sight = False  # Ensure enemy_in_sight is False if killcam is detected, as the detection is still running after player death
     else:
         killcam_status = "Killcam Not Detected"
 
     killcam_text_var.set(killcam_status)
-    save_to_excel(killcam_status)
+    save_to_excel(killcam_status, enemy_in_sight)
 
     # Update GUI with processed frames
     frame_resized = cv2.resize(frame_with_detections, (0, 0), fx=0.3, fy=0.3)
@@ -130,6 +121,11 @@ def update_frame():
     root.after(1000, update_frame)
 
 
+# Initialize YOLO model
+model_path = "runs/detect/60epochs/weights/best.pt"
+model = YOLO(model_path).to('cuda')
+class_colors = {0: (0, 255, 0), 1: (0, 0, 255)}  # Green and Red for classes
+
 # Initialize OCR reader
 reader = easyocr.Reader(['en'])
 
@@ -137,14 +133,14 @@ reader = easyocr.Reader(['en'])
 wb = Workbook()
 ws = wb.active
 ws.title = "CNN Data"
-ws.append(["Elapsed Time (s)", "Killcam Detected", ""])
+ws.append(["Elapsed Time (s)", "Killcam Detected", "Enemy in Sight"])
 start_time = time.time()
 
 
 # Tkinter GUI setup
 root = tk.Tk()
 root.geometry("800x800")
-root.title("Visual FPS Tracker")
+root.title("CNN Tracker: Crosshair + OCR Tracker: Killcam")
 
 full_frame_label = tk.Label(root)
 full_frame_label.pack()

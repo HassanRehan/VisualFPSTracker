@@ -91,7 +91,7 @@ def capture_and_ocr_player_score():
 
 def capture_and_ocr_enemy_score():
     """Capture and OCR the highest enemy score from the screen."""
-    return capture_and_ocr((177, 1010, 55, 35), -ROTATION, highest_enemy_score_text_var, highest_enemy_score_img_label, 120, is_numeric=True)
+    return capture_and_ocr((182, 1010, 70, 35), -ROTATION, highest_enemy_score_text_var, highest_enemy_score_img_label, 120, is_numeric=True)
 
 def capture_and_detect_edge(region, rotation, text_var, img_label, type=""):
     """Capture a region of the screen and detect edges."""
@@ -113,6 +113,7 @@ def create_floating_window(target_window):
     global bullet_count_img_label, gun_name_img_label, player_score_img_label, highest_enemy_score_img_label, tactical_grenade_img_label, lethal_grenade_img_label
 
     root = tk.Tk()
+    root.title("OCR Tracker: Lower UI")
     root.geometry("800x600")
 
     bullet_count_text_var = tk.StringVar(value="Bullet Count: N/A")

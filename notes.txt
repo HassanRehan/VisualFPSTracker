@@ -13,9 +13,6 @@ Observing on-screen icons of grenades disappearing and appearing
 When the player is killed
 Reading on-screen text “KILLCAM” 
 
-Position on map
-Observing on-screen movement of yellow arrow representing the player
-
 Weapon accuracy
 Observing on-screen enemy player model and player crosshair
 
@@ -26,3 +23,6 @@ Map flow detection
 - Dense Optical Flow using DIS
 - SimpleFlow
 - PCAFlow
+
+Position on map
+Observing on-screen movement of yellow arrow representing the player
