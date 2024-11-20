@@ -1,102 +1,192 @@
-import io
+import difflib
 import tkinter as tk
 from PIL import Image, ImageTk
-import pyautogui
+import io
 import pygetwindow as gw
-import threading
-import time
+import mss
 import easyocr
+import cv2
+import numpy as np
+from openpyxl import Workbook
+import time
 
-# Reader instance for English
-reader = easyocr.Reader(['en'])
+# Constants
+ROTATION = 9.5
+THRESHOLD = 190
+OCR_INTERVAL = 800  # in milliseconds
+EXCEL_FILE = "ocr_data.xlsx"
+GUN_NAME_MATCH_THRESHOLD = 0.5
 
-def capture_and_display_screenshot(root, target_window, x, y, w, h, img_label, text_var, rotation):
-    if target_window:
-        try:
-            target_window.activate()
-        except gw.PyGetWindowException as e:
-            print(f"Error activating window: {e}")
+# Weapon categories and names
+weapons = {
+    "Assault Rifles": ["KN-44", "XR-2", "HVK-30", "ICR-1", "Man-O-War", "Sheiva", "M8A7", "Peacekeeper MK2", "FFAR", "MX Garand"],
+    "Submachine Guns": ["Kuda", "VMP", "Weevil", "Vesper", "Pharo", "Razorback", "HG 40"],
+    "Light Machine Guns": ["BRM", "Dingo", "Gorgon", "48 Dredge", "R70 Ajax"],
+    "Sniper Rifles": ["Drakon", "Locus", "SVG-100", "P-06", "RSA Interdiction"],
+    "Shotguns": ["KRM-262", "205 Brecci", "Haymaker 12", "Argus", "Banshii"],
+    "Pistols": ["MR6", "RK5", "L-CAR 9", "1911"],
+    "Launchers": ["XM-53", "BlackCell"],
+    "Melee Weapons": ["Fists", "Combat Knife", "Butterfly Knife", "Wrench", "Brass Knuckles", "Iron Jim", "Fury's Song", "MVP", "Malice", "Carver", "Skull Splitter", "Slash 'n Burn", "Nightbreaker", "Buzz Cut", "Nunchucks", "Raven's Eye", "Ace of Spades", "Path of Sorrows"],
+    "Special Weapons": ["NX ShadowClaw", "Ballistic Knife", "D13 Sector", "Rift E9"]
+}
 
-        screenshot = pyautogui.screenshot(region=(target_window.left + x, target_window.top + y, w, h))
+def save_to_excel(bullet_count, gun_name, player_score, enemy_score, lethal_grenade, tactical_grenade):
+    """Save results to an Excel file."""
+    elapsed_time = int(time.time() - start_time)
+    ws.append([elapsed_time, bullet_count, gun_name, player_score, enemy_score, lethal_grenade, tactical_grenade])
+    wb.save(EXCEL_FILE)
 
-        # Convert to grayscale
-        screenshot = screenshot.convert('L')
+def find_closest_weapon_name(gun_name):
+    """Find the closest matching weapon name from the list of weapon categories."""
+    closest_matches = difflib.get_close_matches(gun_name, all_weapon_names, n=1, cutoff=GUN_NAME_MATCH_THRESHOLD)
+    if closest_matches:
+        closest_weapon = closest_matches[0]
+        category = weapon_name_to_category[closest_weapon]
+        return f"{category}: {closest_weapon}"
+    return ''
 
-        # Apply a threshold to make the image binary
-        threshold = 200
-        screenshot = screenshot.point(lambda p: p > threshold and 255)
+def capture_screen_region(region):
+    """Capture a specific region of the screen."""
+    x, y, w, h = region
+    with mss.mss() as sct:
+        monitor = {"left": target_window.left + x, "top": target_window.top + y, "width": w, "height": h}
+        screenshot = sct.grab(monitor)
+        img = Image.frombytes("RGB", screenshot.size, screenshot.rgb)
+    return img
 
-        # Rotate the image by the specified rotation value
-        screenshot = screenshot.rotate(rotation)
+def capture_and_detect_grenade(region, text_var, img_label, grenade_type):
+    """Capture a region of the screen and detect if a grenade is present."""
+    capture_and_detect_edge(region, ROTATION, text_var, img_label, grenade_type)
+    return "Occupied" if "Occupied" in text_var.get() else "Empty"
 
-        # Process the screenshot
-        img_byte_arr = io.BytesIO()
-        screenshot.save(img_byte_arr, format='PNG')
-        img_byte_arr = img_byte_arr.getvalue()
-        result = reader.readtext(img_byte_arr)
-        text = " ".join([item[1] for item in result])
+def capture_and_ocr(region, rotation, text_var, img_label, threshold, is_numeric=False):
+    """Capture a region of the screen and perform OCR on the image."""
+    img = capture_screen_region(region)
+    img = img.rotate(rotation, expand=True).convert('L').point(lambda p: p > threshold and 255)
+    img_byte_arr = io.BytesIO()
+    img.save(img_byte_arr, format='PNG')
+    img_byte_arr = img_byte_arr.getvalue()
+    result = reader.readtext(img_byte_arr)
+    text = "".join([item[1] for item in result if item[1].isdigit()]) if is_numeric else " ".join([item[1] for item in result])
+    text_var.set(text)
+    imgTk = ImageTk.PhotoImage(image=Image.open(io.BytesIO(img_byte_arr)))
+    img_label.config(image=imgTk)
+    img_label.image = imgTk
+    return text
 
-        # Safely update the GUI from the thread with OCR text
-        root.after(0, lambda: text_var.set(text))
+def capture_and_ocr_bullet_count():
+    """Capture and OCR the bullet count from the screen."""
+    return capture_and_ocr((1565, 960, 70, 58), ROTATION, bullet_count_text_var, bullet_count_img_label, THRESHOLD, is_numeric=True)
 
-        # Convert the processed image back to a format that can be displayed in tkinter
-        imgTk = ImageTk.PhotoImage(image=Image.open(io.BytesIO(img_byte_arr)))
+def capture_and_ocr_gun_name():
+    """Capture and OCR the gun name from the screen."""
+    gun_name = capture_and_ocr((1520, 1030, 220, 40), ROTATION, gun_name_text_var, gun_name_img_label, THRESHOLD)
+    closest_weapon_name = find_closest_weapon_name(gun_name)
+    gun_name_text_var.set(closest_weapon_name)
+    return closest_weapon_name
 
-        # Update the tkinter window to display the processed screenshot
-        root.after(0, lambda: img_label.config(image=imgTk))
-        root.after(0, lambda: setattr(img_label, 'image', imgTk))  # Keep a reference, prevent garbage-collection
-    else:
-        print("Target application window not found.")
+def capture_and_ocr_player_score():
+    """Capture and OCR the player score from the screen."""
+    return capture_and_ocr((177, 953, 90, 40), -ROTATION, player_score_text_var, player_score_img_label, THRESHOLD, is_numeric=True)
 
-# Find the target window
-target_window = None
-for window in gw.getAllTitles():
-    if window.startswith("Call of Duty"):
-        target_window = gw.getWindowsWithTitle(window)[0]
-        break
+def capture_and_ocr_enemy_score():
+    """Capture and OCR the highest enemy score from the screen."""
+    return capture_and_ocr((177, 1010, 55, 35), -ROTATION, highest_enemy_score_text_var, highest_enemy_score_img_label, 120, is_numeric=True)
+
+def capture_and_detect_edge(region, rotation, text_var, img_label, type=""):
+    """Capture a region of the screen and detect edges."""
+    img = capture_screen_region(region).rotate(rotation, expand=True).convert('L')
+    img_cv = cv2.cvtColor(np.array(img), cv2.COLOR_GRAY2BGR)
+    edges = cv2.Canny(img_cv, threshold1=400, threshold2=400)
+    mid_section = edges[edges.shape[0] // 3:2 * edges.shape[0] // 3, edges.shape[1] // 3:2 * edges.shape[1] // 3]
+    text_var.set(f"{type} Slot {'Occupied' if np.any(mid_section == 255) else 'Empty'}")
+    img_pil = Image.fromarray(edges)
+    img_byte_arr = io.BytesIO()
+    img_pil.save(img_byte_arr, format='PNG')
+    imgTk = ImageTk.PhotoImage(image=Image.open(io.BytesIO(img_byte_arr.getvalue())))
+    img_label.config(image=imgTk)
+    img_label.image = imgTk
 
 def create_floating_window(target_window):
-    # Create the floating window
+    """Create a floating window to display the OCR results."""
+    global root, bullet_count_text_var, gun_name_text_var, player_score_text_var, highest_enemy_score_text_var, tactical_grenade_text_var, lethal_grenade_text_var
+    global bullet_count_img_label, gun_name_img_label, player_score_img_label, highest_enemy_score_img_label, tactical_grenade_img_label, lethal_grenade_img_label
+
     root = tk.Tk()
-    root.geometry("600x600")
+    root.geometry("800x600")
 
-    # Create a list to hold the labels and text variables
-    labels = []
-    text_vars = []
+    bullet_count_text_var = tk.StringVar(value="Bullet Count: N/A")
+    gun_name_text_var = tk.StringVar(value="Gun Name: N/A")
+    player_score_text_var = tk.StringVar(value="Player Score: N/A")
+    highest_enemy_score_text_var = tk.StringVar(value="Highest Enemy Score: N/A")
+    tactical_grenade_text_var = tk.StringVar(value="Tactical Grenade: N/A")
+    lethal_grenade_text_var = tk.StringVar(value="Lethal Grenade: N/A")
 
-    # Define the regions to capture
-    regions = [
-        (1565, 960, 70, 58),        # Bullet count
-        (1520, 1030, 220, 40),      # Gun name
-        (177, 953, 40, 40),          # Player score
-        (177, 1010, 35, 35)          # Highest enemy score
+    labels = [
+        (bullet_count_text_var, "Bullet Count: N/A"),
+        (gun_name_text_var, "Gun Name: N/A"),
+        (player_score_text_var, "Player Score: N/A"),
+        (highest_enemy_score_text_var, "Highest Enemy Score: N/A"),
+        (tactical_grenade_text_var, "Tactical Grenade: N/A"),
+        (lethal_grenade_text_var, "Lethal Grenade: N/A")
     ]
 
-    # Define the rotation values for each region
-    rotations = [9.5, 9.5, -9.5, -9.5]
-
-    # Create labels and text variables for each region
-    for _ in regions:
-        text_var = tk.StringVar()
-        text_label = tk.Label(root, textvariable=text_var, font=('Helvetica', 16), fg='black', bg='white')
-        text_label.pack()
-
+    for i, (text_var, default_text) in enumerate(labels):
+        text_label = tk.Label(root, textvariable=text_var)
+        text_label.grid(row=i, column=0, padx=1, pady=1)
         img_label = tk.Label(root)
-        img_label.pack()
+        img_label.grid(row=i, column=1, padx=1, pady=1)
+        if i == 0:
+            bullet_count_img_label = img_label
+        elif i == 1:
+            gun_name_img_label = img_label
+        elif i == 2:
+            player_score_img_label = img_label
+        elif i == 3:
+            highest_enemy_score_img_label = img_label
+        elif i == 4:
+            tactical_grenade_img_label = img_label
+        elif i == 5:
+            lethal_grenade_img_label = img_label
 
-        labels.append((img_label, text_var))
+    update_ocr_results()
 
-    def update_ocr_results(target_window, regions, rotations):
-        while True:
-            for (x, y, w, h), rotation, (img_label, text_var) in zip(regions, rotations, labels):
-                capture_and_display_screenshot(root, target_window, x, y, w, h, img_label, text_var, rotation)
-            root.update()
-            time.sleep(1)
+def update_ocr_results():
+    """Update the OCR results in the floating window."""
+    bullet_count = capture_and_ocr_bullet_count()
+    gun_name = capture_and_ocr_gun_name()
+    player_score = capture_and_ocr_player_score()
+    enemy_score = capture_and_ocr_enemy_score()
+    lethal_grenade = capture_and_detect_grenade((1680, 907, 50, 50), lethal_grenade_text_var, lethal_grenade_img_label, "Lethal Grenade")
+    tactical_grenade = capture_and_detect_grenade((1617, 907, 50, 50), tactical_grenade_text_var, tactical_grenade_img_label, "Tactical Grenade")
 
-    # Start the OCR update process in a separate thread
-    threading.Thread(target=update_ocr_results, args=(target_window, regions, rotations), daemon=True).start()
+    save_to_excel(bullet_count, gun_name, player_score, enemy_score, lethal_grenade, tactical_grenade)
+    root.after(OCR_INTERVAL, update_ocr_results)
 
-    root.mainloop()
 
-# Call the function to create the floating window
+# Preprocess weapon names and categories
+weapon_name_to_category = {}
+for category, weapon_list in weapons.items():
+    for weapon in weapon_list:
+        weapon_name_to_category[weapon] = category
+
+all_weapon_names = list(weapon_name_to_category.keys())
+
+# Initialize the target window
+target_window = next((gw.getWindowsWithTitle(window)[0] for window in gw.getAllTitles() if window.startswith("Call of Duty")), None)
+
+# Initialize the OCR reader
+reader = easyocr.Reader(['en'])
+
+# Initialize the Excel workbook and worksheet
+wb = Workbook()
+ws = wb.active
+ws.title = "OCR Data"
+ws.append(["Elapsed Time (s)", "Bullet Count", "Gun Name", "Player Score", "Enemy Score", "Lethal Grenade", "Tactical Grenade"])
+
+# Record the start time of the program
+start_time = time.time()
+
+# Start the floating window
 create_floating_window(target_window)
+root.mainloop()
