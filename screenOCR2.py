@@ -7,8 +7,19 @@ import mss
 import easyocr
 import cv2
 import numpy as np
+from openpyxl import Workbook
+import time
 
 reader = easyocr.Reader(['en'])
+
+# Initialize the Excel workbook and worksheet
+wb = Workbook()
+ws = wb.active
+ws.title = "OCR Data"
+ws.append(["Elapsed Time (mm:ss)", "Bullet Count", "Gun Name", "Player Score", "Enemy Score", "Lethal Grenade", "Tactical Grenade", "Killcam Detected"])
+
+# Record the start time of the program
+start_time = time.time()
 
 weapons = {
     "Assault Rifles": [
@@ -91,6 +102,13 @@ weapons = {
     ]
 }
 
+def save_to_excel(bullet_count, gun_name, player_score, enemy_score, lethal_grenade, tactical_grenade, killcam):
+    elapsed_time = time.time() - start_time
+    minutes, seconds = divmod(int(elapsed_time), 60)
+    elapsed_time_str = f"{minutes:02}:{seconds:02}"
+    ws.append([elapsed_time_str, bullet_count, gun_name, player_score, enemy_score, lethal_grenade, tactical_grenade, killcam])
+    wb.save("ocr_data.xlsx")
+
 def find_closest_weapon_name(gun_name):
     for category, weapon_list in weapons.items():
         closest_matches = difflib.get_close_matches(gun_name, weapon_list, n=1, cutoff=0.4)
@@ -115,37 +133,55 @@ def capture_and_detect_tactical_grenade():
     region = (1617, 907, 50, 50)
     rotation = 9.5
     capture_and_detect_edge(region, rotation, tactical_grenade_text_var, tactical_grenade_img_label, "Tactical Grenade")
+    if tactical_grenade_text_var.get().__contains__("Occupied"):
+        return "Occupied"
+    else:
+        return "Empty"
 
 def capture_and_detect_lethal_grenade():
     region = (1680, 907, 50, 50)
     rotation = 9.5
     capture_and_detect_edge(region, rotation, lethal_grenade_text_var, lethal_grenade_img_label, "Lethal Grenade")
+    if lethal_grenade_text_var.get().__contains__("Occupied"):
+        return "Occupied"
+    else:
+        return "Empty"
 
 def capture_and_ocr_bullet_count():
     region = (1565, 960, 70, 58)
     rotation = 9.5
     threshold = 190
-    capture_and_ocr_numeric(region, rotation, bullet_count_text_var, bullet_count_img_label, threshold)
+    bullet_count = capture_and_ocr_numeric(region, rotation, bullet_count_text_var, bullet_count_img_label, threshold)
+    return bullet_count
+
+def capture_and_ocr_killcam():
+    region = (640, 80, 640, 60)
+    rotation = 0
+    threshold = 190
+    return capture_and_ocr_text(region, rotation, killcam_text_var, killcam_img_label, threshold, check="killcam")
 
 def capture_and_ocr_gun_name():
     region = (1520, 1030, 220, 40)
     rotation = 9.5
     threshold = 190
-    capture_and_ocr_text(region, rotation, gun_name_text_var, gun_name_img_label, threshold)
+    gun_name = capture_and_ocr_text(region, rotation, gun_name_text_var, gun_name_img_label, threshold, check="gun_name")
+    return gun_name[1] if isinstance(gun_name, tuple) else gun_name
 
 def capture_and_ocr_player_score():
-    region = (177, 953, 40, 40)
+    region = (177, 953, 90, 40)
     rotation = -9.5
     threshold = 190
-    capture_and_ocr_numeric(region, rotation, player_score_text_var, player_score_img_label, threshold)
+    player_score = capture_and_ocr_numeric(region, rotation, player_score_text_var, player_score_img_label, threshold)
+    return player_score
 
 def capture_and_ocr_enemy_score():
-    region = (177, 1010, 35, 35)
+    region = (177, 1010, 55, 35)
     rotation = -9.5
     threshold = 120
-    capture_and_ocr_numeric(region, rotation, highest_enemy_score_text_var, highest_enemy_score_img_label, threshold)
+    enemy_score = capture_and_ocr_numeric(region, rotation, highest_enemy_score_text_var, highest_enemy_score_img_label, threshold)
+    return enemy_score
 
-def capture_and_ocr_text(region, rotation, text_var, img_label, threshold):
+def capture_and_ocr_text(region, rotation, text_var, img_label, threshold, check):
     img = capture_screen_region(region)
     img = img.rotate(rotation, expand=True)
     img = img.convert('L')
@@ -155,37 +191,45 @@ def capture_and_ocr_text(region, rotation, text_var, img_label, threshold):
     img_byte_arr = img_byte_arr.getvalue()
     result = reader.readtext(img_byte_arr)
     text = " ".join([item[1] for item in result])
+    # print(">>>", text)
 
-    temp = find_closest_weapon_name(text)
-    # print(">>>", text, "--->", temp)
-    if temp != '':
-        text_var.set(temp)
-    
     imgTk = ImageTk.PhotoImage(image=Image.open(io.BytesIO(img_byte_arr)))
     img_label.config(image=imgTk)
     img_label.image = imgTk
     img_label.imgTk = imgTk
+
+    if check =="killcam":
+        if text.__contains__("KILLCAM"):
+            text_var.set("Killcam Detected")
+            return "Killcam Detected"
+        else:
+            text_var.set("Killcam Not Detected")
+            return "Killcam Not Detected"
+    elif check == "gun_name":
+        temp = find_closest_weapon_name(text)
+        if temp != '':
+            text_var.set(temp)
+        return temp
 
 def capture_and_ocr_numeric(region, rotation, text_var, img_label, threshold):
     img = capture_screen_region(region)
     img = img.rotate(rotation, expand=True)
     img = img.convert('L')
     img = img.point(lambda p: p > threshold and 255)
-    
-    # Resize image to be twice as large
-    img = img.resize((img.width * 2, img.height * 2))
-    
     img_byte_arr = io.BytesIO()
     img.save(img_byte_arr, format='PNG')
     img_byte_arr = img_byte_arr.getvalue()
-    result = reader.readtext(img_byte_arr, allowlist='0123456789')
-    text = " ".join([item[1] for item in result])
+    result = reader.readtext(img_byte_arr)
+    text = "".join([item[1] for item in result if item[1].isdigit()])
 
     text_var.set(text)
+    
     imgTk = ImageTk.PhotoImage(image=Image.open(io.BytesIO(img_byte_arr)))
     img_label.config(image=imgTk)
     img_label.image = imgTk
     img_label.imgTk = imgTk
+
+    return text
 
 def capture_and_detect_edge(region, rotation, text_var, img_label, type=""):
     img = capture_screen_region(region)
@@ -224,10 +268,10 @@ def capture_and_detect_edge(region, rotation, text_var, img_label, type=""):
 def create_floating_window(target_window):
     global root
     root = tk.Tk()
-    root.geometry("600x600")
+    root.geometry("800x600")
 
-    global bullet_count_text_var, gun_name_text_var, player_score_text_var, highest_enemy_score_text_var, tactical_grenade_text_var, lethal_grenade_text_var
-    global bullet_count_img_label, gun_name_img_label, player_score_img_label, highest_enemy_score_img_label, tactical_grenade_img_label, lethal_grenade_img_label
+    global bullet_count_text_var, gun_name_text_var, player_score_text_var, highest_enemy_score_text_var, tactical_grenade_text_var, lethal_grenade_text_var, killcam_text_var
+    global bullet_count_img_label, gun_name_img_label, player_score_img_label, highest_enemy_score_img_label, tactical_grenade_img_label, lethal_grenade_img_label, killcam_img_label
 
     bullet_count_text_var = tk.StringVar(value="Bullet Count: N/A")
     bullet_count_text_label = tk.Label(root, textvariable=bullet_count_text_var)
@@ -271,17 +315,28 @@ def create_floating_window(target_window):
     lethal_grenade_img_label = tk.Label(root)
     lethal_grenade_img_label.grid(row=5, column=1, padx=1, pady=1)
 
+    killcam_text_var = tk.StringVar(value="Killcam: N/A")
+    killcam_text_label = tk.Label(root, textvariable=killcam_text_var)
+    killcam_text_label.grid(row=6, column=0, padx=1, pady=1)
+
+    killcam_img_label = tk.Label(root)
+    killcam_img_label.grid(row=6, column=1, padx=1, pady=1)
+
     update_ocr_results()
 
-def update_ocr_results():
-    capture_and_ocr_bullet_count()
-    capture_and_ocr_gun_name()
-    capture_and_ocr_player_score()
-    capture_and_ocr_enemy_score()
-    capture_and_detect_tactical_grenade()
-    capture_and_detect_lethal_grenade()
-    
-    root.after(500, update_ocr_results) # Schedule the next update
+def update_ocr_results():    
+
+    bullet_count = capture_and_ocr_bullet_count()
+    gun_name = capture_and_ocr_gun_name()
+    player_score = capture_and_ocr_player_score()
+    enemy_score = capture_and_ocr_enemy_score()
+    lethal_grenade = capture_and_detect_lethal_grenade()
+    tactical_grenade = capture_and_detect_tactical_grenade()
+    killcam = capture_and_ocr_killcam()
+
+    save_to_excel(bullet_count, gun_name, player_score, enemy_score, lethal_grenade, tactical_grenade, killcam)
+
+    root.after(1000, update_ocr_results) # Schedule the next update
 
 target_window = None
 for window in gw.getAllTitles():
