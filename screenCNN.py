@@ -4,7 +4,13 @@ import cv2
 import pygetwindow as gw
 from ultralytics import YOLO
 
-directory = "train"
+directory = "train2"
+
+# Define colors for the two classes
+class_colors = {
+    0: (0, 255, 0),  # Green for class 0
+    1: (0, 0, 255)   # Red for class 1
+}
 
 model = YOLO("runs/detect/" + directory + "/weights/best.pt")
 
@@ -26,22 +32,23 @@ def capture_window(title_startswith):
             "height": target_window.height
         }
         screen = sct.grab(monitor)
-        screen_np = np.array(screen)
-        frame = cv2.cvtColor(screen_np, cv2.COLOR_BGRA2RGB)
+        frame = np.array(screen)
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)  # Convert BGRA to BGR
     return frame
 
 def perform_inference(frame):
-    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    results = model.predict(frame_rgb)
+    results = model.predict(frame)
     return results
 
 def draw_detections(frame, results):
     for result in results:
         for box in result.boxes:
             x1, y1, x2, y2 = map(int, box.xyxy[0])
-            label = f"{model.names[int(box.cls[0])]} {box.conf[0]:.2f}"
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+            class_id = int(box.cls[0])
+            label = f"{model.names[class_id]} {box.conf[0]:.2f}"
+            color = class_colors.get(class_id, (255, 255, 255))  # Default to white if class_id not found
+            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+            cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
     return frame
 
 def main():
