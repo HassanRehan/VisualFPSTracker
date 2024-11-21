@@ -1,3 +1,4 @@
+import csv
 import difflib
 import tkinter as tk
 from PIL import Image, ImageTk
@@ -9,6 +10,7 @@ import cv2
 import numpy as np
 from openpyxl import Workbook
 import time
+import datetime
 
 # Constants
 ROTATION = 9.5
@@ -29,6 +31,19 @@ weapons = {
     "Melee Weapons": ["Fists", "Combat Knife", "Butterfly Knife", "Wrench", "Brass Knuckles", "Iron Jim", "Fury's Song", "MVP", "Malice", "Carver", "Skull Splitter", "Slash 'n Burn", "Nightbreaker", "Buzz Cut", "Nunchucks", "Raven's Eye", "Ace of Spades", "Path of Sorrows"],
     "Special Weapons": ["NX ShadowClaw", "Ballistic Knife", "D13 Sector", "Rift E9"]
 }
+
+def save_session_data():
+    """Save session data to a CSV file before exiting."""
+    elapsed_time = int(time.time() - start_time)
+    kdr = session_kills / deaths if deaths > 0 else current_kills_streak
+    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+    current_time = datetime.datetime.now().strftime("%H:%M:%S")
+    with open("session_data.csv", "w", newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Date", "Time", "Elapsed Time (s)", "Session Kills", "Deaths", "K/D Ratio", "Highest Kill Streak"])
+        writer.writerow([current_date, current_time, elapsed_time, session_kills, deaths, f"{kdr:.2f}", highest_consecutive_kills])
+    root.quit()
+
 
 def save_to_excel(bullet_count, gun_name, player_score, enemy_score, lethal_grenade, tactical_grenade, killcam_status):
     """Save results to an Excel file."""
@@ -80,7 +95,7 @@ def capture_and_ocr_bullet_count():
     return capture_and_ocr((1565, 960, 70, 58), ROTATION, bullet_count_text_var, bullet_count_img_label, THRESHOLD, is_numeric=True)
 
 def capture_and_ocr_gun_name():
-    """Capture and OCR the gun name from the screen."""
+    """Capture and OCR the Weapon from the screen."""
     gun_name = capture_and_ocr((1520, 1030, 220, 40), ROTATION, gun_name_text_var, gun_name_img_label, THRESHOLD)
     closest_weapon_name = find_closest_weapon_name(gun_name)
     gun_name_text_var.set(closest_weapon_name)
@@ -126,7 +141,7 @@ def create_floating_window(target_window):
     root.geometry("800x600")
 
     bullet_count_text_var = tk.StringVar(value="Bullet Count: N/A")
-    gun_name_text_var = tk.StringVar(value="Gun Name: N/A")
+    gun_name_text_var = tk.StringVar(value="Weapon: N/A")
     player_score_text_var = tk.StringVar(value="Player Score: N/A")
     highest_enemy_score_text_var = tk.StringVar(value="Highest Enemy Score: N/A")
     tactical_grenade_text_var = tk.StringVar(value="Tactical Grenade: N/A")
@@ -140,7 +155,7 @@ def create_floating_window(target_window):
 
     labels = [
         (bullet_count_text_var, "Bullet Count: N/A"),
-        (gun_name_text_var, "Gun Name: N/A"),
+        (gun_name_text_var, "Weapon: N/A"),
         (player_score_text_var, "Player Score: N/A"),
         (highest_enemy_score_text_var, "Highest Enemy Score: N/A"),
         (tactical_grenade_text_var, "Tactical Grenade: N/A"),
@@ -172,6 +187,10 @@ def create_floating_window(target_window):
             lethal_grenade_img_label = img_label
         elif i == 6:
             killcam_img_label = img_label
+
+    # Add exit button
+    exit_button = tk.Button(root, text="Exit", command=save_session_data)
+    exit_button.grid(row=len(labels), column=0, padx=1, pady=1)
 
     update_ocr_results()
 
@@ -237,7 +256,7 @@ reader = easyocr.Reader(['en'])
 wb = Workbook()
 ws = wb.active
 ws.title = "OCR Data"
-ws.append(["Elapsed Time (s)", "Bullet Count", "Gun Name", "Player Score", "Enemy Score", "Lethal Grenade", "Tactical Grenade", "Killcam Status"])
+ws.append(["Elapsed Time (s)", "Bullet Count", "Weapon", "Player Score", "Enemy Score", "Lethal Grenade", "Tactical Grenade", "Killcam Status"])
 
 # Record the start time of the program
 start_time = time.time()
