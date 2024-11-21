@@ -12,11 +12,11 @@ import tkinter as tk
 
 UPDATE_INTERVAL = 800  # in milliseconds
 
-def save_to_excel(killcam_status, enemy_in_sight):
+def save_to_excel(enemy_in_sight):
     """Save results to an Excel file."""
     # elapsed_time = round(time.time() - start_time, 1)
     elapsed_time = int(time.time() - start_time)
-    ws.append([elapsed_time, killcam_status, enemy_in_sight])
+    ws.append([elapsed_time, enemy_in_sight])
     wb.save("cnn_data.xlsx")
 
 def find_game_window(title_start="Call of Duty"):
@@ -78,7 +78,6 @@ def update_frame():
     """Main update loop to capture frames and update UI."""
     window = find_game_window()
     if not window:
-        killcam_text_var.set("Game Window Not Found")
         root.after(1000, update_frame)
         return
 
@@ -90,36 +89,20 @@ def update_frame():
     mx1, my1, mx2, my2 = middle_region
     middle_frame = frame_with_detections[my1:my2, mx1:mx2]
 
-    # Detect Killcam status
-    killcam_region_coords = (645, 80, 640, 60)
-
-    killcam_text, killcam_region = extract_text_from_region(killcam_region_coords, window)
-    if "KILLCAM" in killcam_text:
-        killcam_status = "Killcam Detected"
-        enemy_in_sight = False  # Ensure enemy_in_sight is False if killcam is detected, as the detection is still running after player death
-    else:
-        killcam_status = "Killcam Not Detected"
-
-    killcam_text_var.set(killcam_status)
-    save_to_excel(killcam_status, enemy_in_sight)
+    save_to_excel(enemy_in_sight)
 
     # Update GUI with processed frames
     frame_resized = cv2.resize(frame_with_detections, (0, 0), fx=0.3, fy=0.3)
     middle_resized = cv2.resize(middle_frame, (0, 0), fx=0.5, fy=0.5)
-    killcam_resized = cv2.resize(killcam_region, (0, 0), fx=0.5, fy=0.5)
 
     full_frame_img = ImageTk.PhotoImage(image=Image.fromarray(cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)))
     middle_frame_img = ImageTk.PhotoImage(image=Image.fromarray(cv2.cvtColor(middle_resized, cv2.COLOR_BGR2RGB)))
-    killcam_frame_img = ImageTk.PhotoImage(image=Image.fromarray(cv2.cvtColor(killcam_resized, cv2.COLOR_BGR2RGB)))
 
     full_frame_label.config(image=full_frame_img)
     full_frame_label.image = full_frame_img
 
     middle_region_label.config(image=middle_frame_img)
     middle_region_label.image = middle_frame_img
-
-    killcam_img_label.config(image=killcam_frame_img)
-    killcam_img_label.image = killcam_frame_img
 
     root.after(UPDATE_INTERVAL, update_frame)
 
@@ -136,26 +119,19 @@ reader = easyocr.Reader(['en'])
 wb = Workbook()
 ws = wb.active
 ws.title = "CNN Data"
-ws.append(["Elapsed Time (s)", "Killcam Detected", "Enemy in Sight"])
+ws.append(["Elapsed Time (s)", "Enemy in Sight"])
 start_time = time.time()
 
 
 # Tkinter GUI setup
 root = tk.Tk()
 root.geometry("800x800")
-root.title("CNN Tracker: Crosshair + OCR Tracker: Killcam")
+root.title("CNN Tracker")
 
 full_frame_label = tk.Label(root)
 full_frame_label.pack()
 middle_region_label = tk.Label(root)
 middle_region_label.pack()
-
-killcam_text_var = tk.StringVar()
-killcam_label = tk.Label(root, textvariable=killcam_text_var)
-killcam_label.pack()
-
-killcam_img_label = tk.Label(root)
-killcam_img_label.pack()
 
 # Middle region coordinates
 middle_region = (800, 400, 1020, 740)

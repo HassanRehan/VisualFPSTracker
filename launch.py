@@ -6,7 +6,7 @@ def run_script(script_name):
 
 if __name__ == "__main__":
     # Start both scripts concurrently
-    process1 = subprocess.Popen(["python", "screenCNN_OCR.py"])
+    process1 = subprocess.Popen(["python", "screenCNN.py"])
     process2 = subprocess.Popen(["python", "screenOCR_CV.py"])
 
     # Wait for both processes to complete

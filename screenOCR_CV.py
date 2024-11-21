@@ -30,11 +30,11 @@ weapons = {
     "Special Weapons": ["NX ShadowClaw", "Ballistic Knife", "D13 Sector", "Rift E9"]
 }
 
-def save_to_excel(bullet_count, gun_name, player_score, enemy_score, lethal_grenade, tactical_grenade):
+def save_to_excel(bullet_count, gun_name, player_score, enemy_score, lethal_grenade, tactical_grenade, killcam_status):
     """Save results to an Excel file."""
     # elapsed_time = round(time.time() - start_time, 1)
     elapsed_time = int(time.time() - start_time)
-    ws.append([elapsed_time, bullet_count, gun_name, player_score, enemy_score, lethal_grenade, tactical_grenade])
+    ws.append([elapsed_time, bullet_count, gun_name, player_score, enemy_score, lethal_grenade, tactical_grenade, killcam_status])
     wb.save(EXCEL_FILE)
 
 def find_closest_weapon_name(gun_name):
@@ -94,6 +94,13 @@ def capture_and_ocr_enemy_score():
     """Capture and OCR the highest enemy score from the screen."""
     return capture_and_ocr((182, 1010, 70, 35), -ROTATION, highest_enemy_score_text_var, highest_enemy_score_img_label, 120, is_numeric=True)
 
+def capture_and_detect_killcam(region, text_var, img_label):
+    """Capture a region of the screen and detect if the killcam is active."""
+    text = capture_and_ocr(region, 0, text_var, img_label, THRESHOLD)
+    status = "Killed" if "kill" in text.lower() else "Alive"
+    text_var.set(status)
+    return status
+
 def capture_and_detect_edge(region, rotation, text_var, img_label, type=""):
     """Capture a region of the screen and detect edges."""
     img = capture_screen_region(region).rotate(rotation, expand=True).convert('L')
@@ -110,11 +117,12 @@ def capture_and_detect_edge(region, rotation, text_var, img_label, type=""):
 
 def create_floating_window(target_window):
     """Create a floating window to display the OCR results."""
-    global root, bullet_count_text_var, gun_name_text_var, player_score_text_var, highest_enemy_score_text_var, tactical_grenade_text_var, lethal_grenade_text_var
-    global bullet_count_img_label, gun_name_img_label, player_score_img_label, highest_enemy_score_img_label, tactical_grenade_img_label, lethal_grenade_img_label
+    global root, bullet_count_text_var, gun_name_text_var, player_score_text_var, highest_enemy_score_text_var, tactical_grenade_text_var, lethal_grenade_text_var, killcam_text_var
+    global bullet_count_img_label, gun_name_img_label, player_score_img_label, highest_enemy_score_img_label, tactical_grenade_img_label, lethal_grenade_img_label, killcam_img_label
+    global session_kills_text_var, kills_streak_text_var, deaths_text_var, kdr_text_var, highest_consecutive_kills_text_var
 
     root = tk.Tk()
-    root.title("OCR Tracker: Lower UI")
+    root.title("OCR Tracker")
     root.geometry("800x600")
 
     bullet_count_text_var = tk.StringVar(value="Bullet Count: N/A")
@@ -123,6 +131,12 @@ def create_floating_window(target_window):
     highest_enemy_score_text_var = tk.StringVar(value="Highest Enemy Score: N/A")
     tactical_grenade_text_var = tk.StringVar(value="Tactical Grenade: N/A")
     lethal_grenade_text_var = tk.StringVar(value="Lethal Grenade: N/A")
+    killcam_text_var = tk.StringVar(value="Killcam: N/A")
+    session_kills_text_var = tk.StringVar(value="Session Kills: 0")
+    kills_streak_text_var = tk.StringVar(value="Current kill streak: 0")
+    deaths_text_var = tk.StringVar(value="Deaths: 0")
+    kdr_text_var = tk.StringVar(value="K/D Ratio: 0.0")
+    highest_consecutive_kills_text_var = tk.StringVar(value="Highest Kill Streak: 0")
 
     labels = [
         (bullet_count_text_var, "Bullet Count: N/A"),
@@ -130,7 +144,13 @@ def create_floating_window(target_window):
         (player_score_text_var, "Player Score: N/A"),
         (highest_enemy_score_text_var, "Highest Enemy Score: N/A"),
         (tactical_grenade_text_var, "Tactical Grenade: N/A"),
-        (lethal_grenade_text_var, "Lethal Grenade: N/A")
+        (lethal_grenade_text_var, "Lethal Grenade: N/A"),
+        (killcam_text_var, "Killcam: N/A"),
+        (session_kills_text_var, "Session Kills: 0"),
+        (kills_streak_text_var, "Current Kill streak: 0"),
+        (deaths_text_var, "Session Deaths: 0"),
+        (kdr_text_var, "Session K/D Ratio: 0.0"),
+        (highest_consecutive_kills_text_var, "Session Highest Kill Streak: 0")
     ]
 
     for i, (text_var, default_text) in enumerate(labels):
@@ -150,21 +170,54 @@ def create_floating_window(target_window):
             tactical_grenade_img_label = img_label
         elif i == 5:
             lethal_grenade_img_label = img_label
+        elif i == 6:
+            killcam_img_label = img_label
 
     update_ocr_results()
 
 def update_ocr_results():
     """Update the OCR results in the floating window."""
+    global current_kills_streak, session_kills, deaths, highest_consecutive_kills, initial_player_score, killcam_flag, kill_flag
+
     bullet_count = capture_and_ocr_bullet_count()
     gun_name = capture_and_ocr_gun_name()
     player_score = capture_and_ocr_player_score()
     enemy_score = capture_and_ocr_enemy_score()
     lethal_grenade = capture_and_detect_grenade((1680, 907, 50, 50), lethal_grenade_text_var, lethal_grenade_img_label, "Lethal Grenade")
     tactical_grenade = capture_and_detect_grenade((1617, 907, 50, 50), tactical_grenade_text_var, tactical_grenade_img_label, "Tactical Grenade")
+    killcam = capture_and_detect_killcam((645, 80, 640, 60), killcam_text_var, killcam_img_label)
 
-    save_to_excel(bullet_count, gun_name, player_score, enemy_score, lethal_grenade, tactical_grenade)
+    # Update kills and deaths
+    if player_score.isdigit():
+        player_score = int(player_score)
+        if initial_player_score is None:
+            initial_player_score = player_score
+        elif player_score > initial_player_score + session_kills:
+            session_kills += 1
+            current_kills_streak += 1
+            session_kills_text_var.set(f"Session Kills: {session_kills}")
+            kill_flag = False
+
+    if "kill" in killcam.lower():
+        if not killcam_flag:
+            deaths += 1
+            highest_consecutive_kills = max(highest_consecutive_kills, current_kills_streak)
+            current_kills_streak = 0
+            deaths_text_var.set(f"Session Deaths: {deaths}")
+        killcam_flag = True
+    else:
+        killcam_flag = False
+
+    # Update K/D ratio
+    kdr = session_kills / deaths if deaths > 0 else current_kills_streak
+
+    # Update the new labels
+    kills_streak_text_var.set(f"Current Kill streak: {current_kills_streak}")
+    kdr_text_var.set(f"Session K/D Ratio: {kdr:.2f}")
+    highest_consecutive_kills_text_var.set(f"Session Highest Kill Streak: {highest_consecutive_kills}")
+
+    save_to_excel(bullet_count, gun_name, player_score, enemy_score, lethal_grenade, tactical_grenade, killcam)
     root.after(UPDATE_INTERVAL, update_ocr_results)
-
 
 # Preprocess weapon names and categories
 weapon_name_to_category = {}
@@ -184,10 +237,20 @@ reader = easyocr.Reader(['en'])
 wb = Workbook()
 ws = wb.active
 ws.title = "OCR Data"
-ws.append(["Elapsed Time (s)", "Bullet Count", "Gun Name", "Player Score", "Enemy Score", "Lethal Grenade", "Tactical Grenade"])
+ws.append(["Elapsed Time (s)", "Bullet Count", "Gun Name", "Player Score", "Enemy Score", "Lethal Grenade", "Tactical Grenade", "Killcam Status"])
 
 # Record the start time of the program
 start_time = time.time()
+
+# Initialize variables to track kills, deaths, and highest consecutive kills
+initial_player_score = None
+current_kills_streak = 0
+session_kills = 0
+deaths = 0
+highest_consecutive_kills = 0
+killcam_flag = False
+kill_flag = False
+
 
 # Start the floating window
 create_floating_window(target_window)
