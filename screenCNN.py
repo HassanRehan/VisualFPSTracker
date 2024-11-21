@@ -5,7 +5,6 @@ import cv2
 import pygetwindow as gw
 from ultralytics import YOLO
 from PIL import Image, ImageTk
-import easyocr
 from openpyxl import Workbook
 import time
 import tkinter as tk
@@ -66,14 +65,6 @@ def draw_detections(frame, results, middle_region):
     return frame, enemy_detected
 
 
-def extract_text_from_region(region, window, threshold=190):
-    """Capture and OCR a specific region of the screen."""
-    img = capture_region(region, window)
-    img_pil = Image.fromarray(img).convert('L').point(lambda p: p > threshold and 255)
-    result = reader.readtext(np.array(img_pil))
-    extracted_text = " ".join([item[1] for item in result])
-    return extracted_text, np.array(img_pil)
-
 def update_frame():
     """Main update loop to capture frames and update UI."""
     window = find_game_window()
@@ -111,9 +102,6 @@ def update_frame():
 model_path = "runs/detect/60epochs/weights/best.pt"
 model = YOLO(model_path).to('cuda')
 class_colors = {0: (0, 255, 0), 1: (0, 0, 255)}  # Green and Red for classes
-
-# Initialize OCR reader
-reader = easyocr.Reader(['en'])
 
 # Initialize Excel workbook
 wb = Workbook()

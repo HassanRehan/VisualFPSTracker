@@ -19,9 +19,9 @@ if __name__ == "__main__":
     print(">>> Starting merge script...")
     # Read the Excel files
     cnn_df = pd.read_excel('cnn_data.xlsx')
-    ocr_df = pd.read_excel('ocr_data.xlsx')
+    ocr_df = pd.read_excel('ocr_cv_data.xlsx')
     # Merge the dataframes on the "Elapsed Time (s)" column
-    merged_df = pd.merge(cnn_df, ocr_df, on='Elapsed Time (s)', suffixes=('_cnn', '_ocr'))
+    merged_df = pd.merge(cnn_df, ocr_df, on='Elapsed Time (s)', suffixes=('_cnn', '_ocr_cv'))
     # Save the merged dataframe to a new Excel file
     merged_df.to_excel('merged_data.xlsx', index=False)
     print("\----Merge script has completed.")

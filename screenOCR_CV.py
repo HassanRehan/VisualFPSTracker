@@ -16,7 +16,7 @@ import datetime
 ROTATION = 9.5
 THRESHOLD = 190
 UPDATE_INTERVAL = 800  # in milliseconds
-EXCEL_FILE = "ocr_data.xlsx"
+EXCEL_FILE = "ocr_cv_data.xlsx"
 GUN_NAME_MATCH_THRESHOLD = 0.5
 
 # Weapon categories and names
@@ -134,11 +134,11 @@ def create_floating_window(target_window):
     """Create a floating window to display the OCR results."""
     global root, bullet_count_text_var, gun_name_text_var, player_score_text_var, highest_enemy_score_text_var, tactical_grenade_text_var, lethal_grenade_text_var, killcam_text_var
     global bullet_count_img_label, gun_name_img_label, player_score_img_label, highest_enemy_score_img_label, tactical_grenade_img_label, lethal_grenade_img_label, killcam_img_label
-    global session_kills_text_var, kills_streak_text_var, deaths_text_var, kdr_text_var, highest_consecutive_kills_text_var
+    global session_kills_text_var, kills_streak_text_var, deaths_text_var, kdr_text_var, highest_consecutive_kills_text_var, elapsed_time_text_var
 
     root = tk.Tk()
     root.title("OCR Tracker")
-    root.geometry("800x600")
+    root.geometry("800x800")
 
     bullet_count_text_var = tk.StringVar(value="Bullet Count: N/A")
     gun_name_text_var = tk.StringVar(value="Weapon: N/A")
@@ -152,6 +152,7 @@ def create_floating_window(target_window):
     deaths_text_var = tk.StringVar(value="Deaths: 0")
     kdr_text_var = tk.StringVar(value="K/D Ratio: 0.0")
     highest_consecutive_kills_text_var = tk.StringVar(value="Highest Kill Streak: 0")
+    elapsed_time_text_var = tk.StringVar(value="Elapsed Time: 0s")
 
     labels = [
         (bullet_count_text_var, "Bullet Count: N/A"),
@@ -165,7 +166,8 @@ def create_floating_window(target_window):
         (kills_streak_text_var, "Current Kill streak: 0"),
         (deaths_text_var, "Session Deaths: 0"),
         (kdr_text_var, "Session K/D Ratio: 0.0"),
-        (highest_consecutive_kills_text_var, "Session Highest Kill Streak: 0")
+        (highest_consecutive_kills_text_var, "Session Highest Kill Streak: 0"),
+        (elapsed_time_text_var, "Elapsed Time: 0s")
     ]
 
     for i, (text_var, default_text) in enumerate(labels):
@@ -235,6 +237,10 @@ def update_ocr_results():
     kdr_text_var.set(f"Session K/D Ratio: {kdr:.2f}")
     highest_consecutive_kills_text_var.set(f"Session Highest Kill Streak: {highest_consecutive_kills}")
 
+    # Update elapsed time
+    elapsed_time = int(time.time() - start_time)
+    elapsed_time_text_var.set(f"Elapsed Time: {elapsed_time}s")
+
     save_to_excel(bullet_count, gun_name, player_score, enemy_score, lethal_grenade, tactical_grenade, killcam)
     root.after(UPDATE_INTERVAL, update_ocr_results)
 
@@ -255,7 +261,7 @@ reader = easyocr.Reader(['en'])
 # Initialize the Excel workbook and worksheet
 wb = Workbook()
 ws = wb.active
-ws.title = "OCR Data"
+ws.title = "OCR and CV Data"
 ws.append(["Elapsed Time (s)", "Bullet Count", "Weapon", "Player Score", "Enemy Score", "Lethal Grenade", "Tactical Grenade", "Killcam Status"])
 
 # Record the start time of the program

@@ -10,7 +10,7 @@ import colorsys
 # Read the Excel file
 df = pd.read_excel("merged_data.xlsx")
 
-# Read the CSV file with the new format
+# Read the CSV file with the format
 session_df = pd.read_csv("session_data.csv")
 
 # Convert the session data to an HTML table
@@ -56,25 +56,79 @@ fig3.update_layout(title='Weapon Total Time', xaxis_title='Elapsed Time (s)', ya
 # Plot 4: Line plot for bullet count over time
 line_bullet = go.Scatter(x=df['Elapsed Time (s)'], y=df['Bullet Count'], mode='lines', name='Bullet Count')
 fig4 = go.Figure(data=[line_bullet])
-fig4.update_layout(title='Bullet Count Over Time', xaxis_title='Elapsed Time (s)', yaxis_title='Bullet Count', showlegend=True)
+fig4.update_layout(
+    title='Bullet Count Over Time',
+    xaxis_title='Elapsed Time (s)',
+    yaxis_title='Bullet Count',
+    showlegend=True,
+    annotations=[
+        dict(
+            x=-0.05,
+            y=1.15,
+            xref='paper',
+            yref='paper',
+            text='<i>Big drops in count indicate weapon change</i>',
+            showarrow=False,
+            font=dict(size=12)
+        )
+    ]
+)
 
-# Plot 5: Bar plot for enemy in sight grouped by size
+
+# Plot 5: Bar plot for total kills per weapon
+df['Player Score'] = df['Player Score'].fillna(0)  # Fill NaN values with 0
+df['Score Increment'] = df['Player Score'].diff().fillna(0)  # Calculate score increments
+df['Kills'] = df['Score Increment'].apply(lambda x: 1 if x > 0 else 0)  # Count kills
+# Group by weapon and sum the kills
+weapon_kills = df.groupby('Weapon')['Kills'].sum()
+# Define a list of colors for each unique weapon
+unique_weapons_kills = weapon_kills.index
+colors_kills = [pastel_color(i, len(unique_weapons_kills)) for i in range(len(unique_weapons_kills))]
+# Create the bar plot for total kills per weapon
+bar_kills = go.Bar(
+    x=weapon_kills.values,
+    y=weapon_kills.index,
+    orientation='h',
+    marker=dict(color=colors_kills)
+)
+fig5 = go.Figure(data=[bar_kills])
+fig5.update_layout(
+    title='Total Kills per Weapon',
+    xaxis_title='Number of Kills',
+    yaxis_title='Weapon',
+    annotations=[
+        dict(
+            x=-0.2,
+            y=1.15,
+            xref='paper',
+            yref='paper',
+            text='<i>Inaccurate if weapon changes are frequent</i>',
+            showarrow=False,
+            font=dict(size=12)
+        )
+    ]
+)
+
+# Plot 6: Line plot for player score and enemy score over time
+df_filtered = df[(df['Player Score'] > 0) & (df['Enemy Score'] > 0)]
+line_player_score = go.Scatter(x=df_filtered['Elapsed Time (s)'], y=df_filtered['Player Score'], mode='lines', name='Player Score')
+line_enemy_score = go.Scatter(x=df_filtered['Elapsed Time (s)'], y=df_filtered['Enemy Score'], mode='lines', name='Enemy Score')
+fig6 = go.Figure(data=[line_player_score, line_enemy_score])
+fig6.update_layout(title='Player and Enemy Score Over Time', xaxis_title='Elapsed Time (s)', yaxis_title='Score')
+
+# Plot 7: Bar plot for enemy in sight grouped by size
 enemy_in_sight_grouped_counts = df.groupby('Enemy in Sight').size()
-colors = ['#ff6961', '#77dd77']  # Pastel green and pastel red
+colors = ['#ffb3b3', '#c1e1c1']  # Lighter pastel red and lighter pastel green
 bar_enemy_in_sight_grouped = go.Bar(
     x=enemy_in_sight_grouped_counts.values,
     y=enemy_in_sight_grouped_counts.index,
     orientation='h',
     marker=dict(color=colors)
 )
-fig5 = go.Figure(data=[bar_enemy_in_sight_grouped])
-fig5.update_layout(title='Enemy in Sight Breakdown', xaxis_title='Elapsed Time (s)', yaxis_title='Enemy in Sight')
+fig7 = go.Figure(data=[bar_enemy_in_sight_grouped])
+fig7.update_layout(title='Enemy in Sight Breakdown', xaxis_title='Elapsed Time (s)', yaxis_title='Enemy in Sight')
 
-# Plot 6: Line plot for player score and enemy score over time
-line_player_score = go.Scatter(x=df['Elapsed Time (s)'], y=df['Player Score'], mode='lines', name='Player Score')
-line_enemy_score = go.Scatter(x=df['Elapsed Time (s)'], y=df['Enemy Score'], mode='lines', name='Enemy Score')
-fig6 = go.Figure(data=[line_player_score, line_enemy_score])
-fig6.update_layout(title='Player and Enemy Score Over Time', xaxis_title='Elapsed Time (s)', yaxis_title='Score')
+
 
 # Generate HTML for each plot
 plot(fig1, filename='plots/plot1.html', auto_open=False, include_plotlyjs=True)
@@ -83,6 +137,7 @@ plot(fig3, filename='plots/plot3.html', auto_open=False, include_plotlyjs=False)
 plot(fig4, filename='plots/plot4.html', auto_open=False, include_plotlyjs=False)
 plot(fig5, filename='plots/plot5.html', auto_open=False, include_plotlyjs=False)
 plot(fig6, filename='plots/plot6.html', auto_open=False, include_plotlyjs=False)
+plot(fig7, filename='plots/plot7.html', auto_open=False, include_plotlyjs=False)
 
 # Combine all HTML files into one with a grid layout
 
@@ -102,7 +157,7 @@ with open(absolute_filename, 'w', encoding='utf-8') as outfile:
     outfile.write('<html><head><title>Combined Plots</title><style>')
     outfile.write('.grid-container { display: grid; grid-template-columns: auto auto; gap: 10px; }')
     outfile.write('.grid-item { padding: 10px; }')
-    outfile.write('.styled-table { border-collapse: collapse; margin: 25px 0; font-size: 0.9em; font-family: sans-serif; min-width: 400px; box-shadow: 0 0 20px rgba(0, 0, 0, 0.15); }')
+    outfile.write('.styled-table { border-collapse: collapse; margin: 25px 0; font-size: 0.9em; font-family: "Open Sans", verdana, arial, sans-serif; min-width: 400px; box-shadow: 0 0 20px rgba(0, 0, 0, 0.15); }')
     outfile.write('.styled-table thead tr { background-color: #333; color: #ffffff; text-align: left; }')
     outfile.write('.styled-table th, .styled-table td { padding: 12px 15px; }')
     outfile.write('.styled-table tbody tr { border-bottom: 1px solid #dddddd; }')
@@ -111,13 +166,13 @@ with open(absolute_filename, 'w', encoding='utf-8') as outfile:
     outfile.write('</style></head><body>')
     
     # Write the session data table at the top with the timestamp    
-    outfile.write(f'<h2 style="font-family: sans-serif; color: #333; text-align: center;">Session Data - {human_readable_timestamp}</h2>')
+    outfile.write(f'<h2 style="font-family: \'Open Sans\', verdana, arial, sans-serif; color: #333; text-align: center;">Session Data - {human_readable_timestamp}</h2>')
     outfile.write('<div style="display: flex; justify-content: center;">')
     outfile.write(session_html_table)
     outfile.write('</div>')
     
     outfile.write('<div class="grid-container">')
-    for i in range(1, 7):
+    for i in range(1, 8):
         with open(f'plots/plot{i}.html', encoding='utf-8') as infile:
             outfile.write('<div class="grid-item">')
             outfile.write(infile.read())
