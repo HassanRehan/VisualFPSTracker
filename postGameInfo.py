@@ -150,7 +150,7 @@ human_readable_timestamp = f'{session_date} - {session_time}'
 safe_timestamp = human_readable_timestamp.replace(':', '-').replace(' ', '_')
 
 # Create the filename with the timestamp
-filename = f'playhistory/data_{safe_timestamp}.html'
+filename = f'playHistory/data_{safe_timestamp}.html'
 absolute_filename = os.path.abspath(filename)
 
 with open(absolute_filename, 'w', encoding='utf-8') as outfile:
